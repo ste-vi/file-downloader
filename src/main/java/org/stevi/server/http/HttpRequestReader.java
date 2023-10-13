@@ -1,4 +1,7 @@
-package org.stevi.server;
+package org.stevi.server.http;
+
+import org.stevi.server.http.enumeration.HttpMethod;
+import org.stevi.server.http.model.HttpRequest;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -11,10 +14,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 
-public class HttpDecoder {
+public class HttpRequestReader {
 
     public static Optional<HttpRequest> decode(InputStream inputStream) {
-        return readMessage(inputStream).flatMap(HttpDecoder::buildRequest);
+        return readMessage(inputStream).flatMap(HttpRequestReader::buildRequest);
     }
 
     private static Optional<List<String>> readMessage(final InputStream inputStream) {
@@ -32,7 +35,9 @@ public class HttpDecoder {
             try (Scanner sc = new Scanner(new String(inBuffer))) {
                 while (sc.hasNextLine()) {
                     String line = sc.nextLine();
-                    message.add(line);
+                    if (!line.isBlank()) {
+                        message.add(line);
+                    }
                 }
             }
 

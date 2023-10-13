@@ -1,7 +1,8 @@
-package org.stevi.server;
+package org.stevi.server.http.model;
 
 import lombok.Builder;
 import lombok.Getter;
+import org.stevi.server.http.enumeration.HttpMethod;
 
 import java.net.URI;
 import java.util.List;

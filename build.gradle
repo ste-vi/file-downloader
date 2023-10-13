@@ -4,7 +4,7 @@ apply plugin: 'application'
 group = 'org.stevi'
 version = '1.0-SNAPSHOT'
 
-mainClassName = 'org.stevi.Main'
+mainClassName = 'org.stevi.server.Main'
 
 sourceCompatibility = 21
 targetCompatibility = 21
@@ -16,6 +16,7 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.9.1')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation 'ch.qos.logback:logback-classic:1.4.11'
 
     compileOnly 'org.projectlombok:lombok:1.18.30'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
