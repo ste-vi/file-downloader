@@ -3,72 +3,59 @@ package org.stevi.server.http;
 import org.stevi.server.http.enumeration.HttpMethod;
 import org.stevi.server.http.model.HttpRequest;
 
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Scanner;
+import java.util.stream.Stream;
 
 public class HttpRequestReader {
 
-    public static Optional<HttpRequest> decode(InputStream inputStream) {
-        return readMessage(inputStream).flatMap(HttpRequestReader::buildRequest);
+    public static Optional<HttpRequest> decodeRequest(InputStream inputStream) {
+        Stream<String> httpLinesStream = readHttpLines(inputStream);
+        return buildRequest(httpLinesStream);
     }
 
-    private static Optional<List<String>> readMessage(final InputStream inputStream) {
-        try {
-            if (!(inputStream.available() > 0)) {
-                return Optional.empty();
-            }
-
-            final char[] inBuffer = new char[inputStream.available()];
-            final InputStreamReader inReader = new InputStreamReader(inputStream);
-            final int read = inReader.read(inBuffer);
-
-            List<String> message = new ArrayList<>();
-
-            try (Scanner sc = new Scanner(new String(inBuffer))) {
-                while (sc.hasNextLine()) {
-                    String line = sc.nextLine();
-                    if (!line.isBlank()) {
-                        message.add(line);
-                    }
-                }
-            }
-
-            return Optional.of(message);
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+    private static Stream<String> readHttpLines(InputStream inputStream) {
+        var bufferedReader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        return bufferedReader.lines();
     }
 
-    private static Optional<HttpRequest> buildRequest(List<String> message) {
-        if (message.isEmpty()) {
+    private static Optional<HttpRequest> buildRequest(Stream<String> httpLinesStream) {
+        List<String> httpLines = httpLinesStream.toList();
+        if (httpLines.isEmpty()) {
             return Optional.empty();
         }
 
-        String firstLine = message.get(0);
-        String[] httpInfo = firstLine.split(" ");
+        String info = httpLines.get(0);
+        String[] httpInfo = info.split(" ");
 
         if (httpInfo.length != 3) {
             return Optional.empty();
         }
 
+        String method = httpInfo[0];
+        String uri = httpInfo[1];
         String protocolVersion = httpInfo[2];
+
         if (!protocolVersion.equals("HTTP/1.1")) {
             return Optional.empty();
         }
 
         try {
-            HttpRequest httpRequest = HttpRequest.builder()
-                    .httpMethod(HttpMethod.valueOf(httpInfo[0]))
-                    .uri(new URI(httpInfo[1]))
-                    .requestHeaders(resolveRequestHeaders(message))
+            var httpRequest = HttpRequest
+                    .builder()
+                    .httpMethod(HttpMethod.valueOf(method))
+                    .uri(new URI(uri))
+                    .requestHeaders(resolveRequestHeaders(httpLines))
                     .build();
             return Optional.of(httpRequest);
         } catch (URISyntaxException | IllegalArgumentException e) {
@@ -76,12 +63,12 @@ public class HttpRequestReader {
         }
     }
 
-    private static Map<String, List<String>> resolveRequestHeaders(final List<String> message) {
-        final Map<String, List<String>> requestHeaders = new HashMap<>();
+    private static Map<String, List<String>> resolveRequestHeaders(List<String> httpLines) {
+        Map<String, List<String>> requestHeaders = new HashMap<>();
 
-        if (message.size() > 1) {
-            for (int i = 1; i < message.size(); i++) {
-                String header = message.get(i);
+        if (httpLines.size() > 1) {
+            for (int i = 1; i < httpLines.size(); i++) {
+                String header = httpLines.get(i);
                 int colonIndex = header.indexOf(':');
 
                 if (!(colonIndex > 0 && header.length() > colonIndex + 1)) {

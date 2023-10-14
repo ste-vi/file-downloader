@@ -45,18 +45,18 @@ public class Server {
         }
     }
 
-    public void stop() {
-        isStarted = false;
-    }
-
     private void handleSocketConnection(Socket socket) {
         Runnable runnable = () -> {
-            try {
+            try (socket) {
                 handler.handle(socket.getInputStream(), socket.getOutputStream());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         };
         executor.execute(runnable);
+    }
+
+    public void stop() {
+        isStarted = false;
     }
 }
