@@ -1,41 +1,55 @@
 package org.stevi.server.http;
 
+import lombok.SneakyThrows;
 import org.stevi.server.http.enumeration.HttpMethod;
+import org.stevi.server.http.enumeration.HttpVersion;
 import org.stevi.server.http.model.HttpRequest;
 
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 public class HttpRequestReader {
 
-    public static Optional<HttpRequest> decodeRequest(InputStream inputStream) {
-        Stream<String> httpLinesStream = readHttpLines(inputStream);
-        return buildRequest(httpLinesStream);
+    @SneakyThrows
+    public Optional<HttpRequest> decodeRequest(InputStream inputStream) {
+        List<String> metadata = readHttpMetadata(inputStream);
+        return buildRequest(metadata, inputStream);
     }
 
-    private static Stream<String> readHttpLines(InputStream inputStream) {
-        var bufferedReader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-        return bufferedReader.lines();
+    @SneakyThrows
+    private List<String> readHttpMetadata(InputStream inputStream) {
+        StringBuilder requestHeader = new StringBuilder();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            String chunk = new String(buffer, 0, bytesRead);
+            requestHeader.append(chunk);
+            if (chunk.contains("\r\n\r\n")) {
+                break;
+            }
+        }
+
+        return Arrays
+                .stream(requestHeader.toString().split("\n"))
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .toList();
     }
 
-    private static Optional<HttpRequest> buildRequest(Stream<String> httpLinesStream) {
-        List<String> httpLines = httpLinesStream.toList();
-        if (httpLines.isEmpty()) {
+    private Optional<HttpRequest> buildRequest(List<String> metadata, InputStream bodyInputStream) {
+        if (metadata.isEmpty()) {
             return Optional.empty();
         }
 
-        String info = httpLines.get(0);
+        String info = metadata.get(0);
         String[] httpInfo = info.split(" ");
 
         if (httpInfo.length != 3) {
@@ -46,7 +60,7 @@ public class HttpRequestReader {
         String uri = httpInfo[1];
         String protocolVersion = httpInfo[2];
 
-        if (!protocolVersion.equals("HTTP/1.1")) {
+        if (!HttpVersion.HTTP_1_1.getValue().equals(protocolVersion)) {
             return Optional.empty();
         }
 
@@ -55,7 +69,8 @@ public class HttpRequestReader {
                     .builder()
                     .httpMethod(HttpMethod.valueOf(method))
                     .uri(new URI(uri))
-                    .requestHeaders(resolveRequestHeaders(httpLines))
+                    .requestHeaders(resolveRequestHeaders(metadata))
+                    .bodyInputStream(bodyInputStream)
                     .build();
             return Optional.of(httpRequest);
         } catch (URISyntaxException | IllegalArgumentException e) {
@@ -63,7 +78,7 @@ public class HttpRequestReader {
         }
     }
 
-    private static Map<String, List<String>> resolveRequestHeaders(List<String> httpLines) {
+    private Map<String, List<String>> resolveRequestHeaders(List<String> httpLines) {
         Map<String, List<String>> requestHeaders = new HashMap<>();
 
         if (httpLines.size() > 1) {
@@ -79,11 +94,11 @@ public class HttpRequestReader {
                 String headerValue = header.substring(colonIndex + 1);
 
                 requestHeaders.compute(headerName, (key, values) -> {
-                    if (values != null) {
-                        values.add(headerValue);
-                    } else {
+                    if (values == null) {
                         values = new ArrayList<>();
                     }
+                    values.add(headerValue);
+
                     return values;
                 });
             }

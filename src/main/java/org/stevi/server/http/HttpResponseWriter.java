@@ -1,9 +1,10 @@
 package org.stevi.server.http;
 
+import com.google.gson.Gson;
+import org.stevi.server.http.enumeration.HttpVersion;
 import org.stevi.server.http.model.HttpResponse;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,30 +12,39 @@ import java.util.Map;
 
 public class HttpResponseWriter {
 
-    public static void writeResponse(OutputStream outputStream, HttpResponse response) {
-        try {
-            var objectOutputStream = new ObjectOutputStream(outputStream);
+    private final Gson gson = new Gson();
 
-            String httpResponseInfo = "HTTP/1.1 " + response.getStatusCode() + " " + "Ok" + "\r\n";
-            objectOutputStream.write(httpResponseInfo.getBytes());
+    public void writeResponse(OutputStream outputStream, HttpResponse response) {
+        try {
+
+            String httpResponseInfo = "%s %s %s".formatted(
+                    HttpVersion.HTTP_1_1.getValue(),
+                    response.getStatusCode().getCode(),
+                    response.getStatusCode());
+
+            outputStream.write(httpResponseInfo.getBytes());
 
             List<String> responseHeaders = buildHeaderStrings(response.getResponseHeaders());
-            for (String header : responseHeaders) {
-                objectOutputStream.writeChars(header);
+            if (!responseHeaders.isEmpty()) {
+                outputStream.write("\r\n".getBytes());
+                for (var header : responseHeaders) {
+                    outputStream.write(header.getBytes());
+                }
             }
 
             if (response.getEntity() != null) {
-                objectOutputStream.writeChars("\r\n");
-                objectOutputStream.writeObject(response);
+                outputStream.write("\r\n".getBytes());
+                String json = gson.toJson(response.getEntity());
+                outputStream.write(json.getBytes());
             } else {
-                objectOutputStream.writeChars("\r\n");
+                outputStream.write("\r\n".getBytes());
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static List<String> buildHeaderStrings(Map<String, List<String>> responseHeaders) {
+    private List<String> buildHeaderStrings(Map<String, List<String>> responseHeaders) {
         List<String> responseHeadersList = new ArrayList<>();
 
         responseHeaders.forEach((name, values) -> {
