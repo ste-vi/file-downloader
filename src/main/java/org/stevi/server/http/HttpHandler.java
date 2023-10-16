@@ -5,10 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.stevi.server.http.enumeration.HttpStatusCode;
 import org.stevi.server.http.model.HttpRequest;
 import org.stevi.server.http.model.HttpResponse;
+import org.stevi.server.http.servlet.DefaultHttpServletImpl;
+import org.stevi.server.http.servlet.HttpServlet;
 import org.stevi.server.server.Handler;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,31 +21,47 @@ public class HttpHandler implements Handler {
 
     private final HttpRequestReader requestReader = new HttpRequestReader();
     private final HttpResponseWriter responseWriter = new HttpResponseWriter();
+    private final List<HttpServlet> servletImpls = new ArrayList<>();
+
+    public HttpHandler() {
+        servletImpls.add(new DefaultHttpServletImpl());
+    }
 
     @SneakyThrows
     public void handle(InputStream inputStream, OutputStream outputStream) {
+        Optional<HttpRequest> optRequest = requestReader.decodeRequest(inputStream);
 
-        getRequest(inputStream);
+        if (optRequest.isEmpty()) {
+            //writeNotFoundResponse(outputStream);
+            return;
+        }
 
-        writeResponse(outputStream);
+        HttpRequest request = optRequest.get();
 
-        outputStream.close();
-        inputStream.close();
+        log.info("Incoming http {} request {}", request.getHttpMethod(), request.getUri());
+
+        HttpResponse response = HttpResponse.builder()
+                .statusCode(HttpStatusCode.OK)
+                .responseHeaders(Map.of("Content-Type", List.of("application/json")))
+                .build();
+
+        servletImpls.forEach(httpServlet -> {
+            switch (request.getHttpMethod()) {
+                case GET -> httpServlet.doGet(request, response);
+                case POST -> httpServlet.doPost(request, response);
+            }
+        });
+
+        responseWriter.writeResponse(outputStream, response);
     }
 
     private void getRequest(InputStream inputStream) {
-        Optional<HttpRequest> optRequest = requestReader.decodeRequest(inputStream);
-        HttpRequest request = optRequest.orElseThrow(() -> new RuntimeException("Cannot consume http request"));
 
-        log.info("Incoming http {} request {}", request.getHttpMethod(), request.getUri());
     }
 
-    private void writeResponse(OutputStream outputStream) {
-        String entity = "Hello world";
+    private void writeNotFoundResponse(OutputStream outputStream) {
         HttpResponse response = HttpResponse.builder()
-                .statusCode(HttpStatusCode.OK)
-                .entity(entity)
-                .responseHeaders(Map.of("Content-Length", List.of(String.valueOf(entity.length()))))
+                .statusCode(HttpStatusCode.NOT_FOUND)
                 .responseHeaders(Map.of("Content-Type", List.of("application/json")))
                 .build();
 

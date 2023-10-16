@@ -20,7 +20,7 @@ public class HttpResponseWriter {
             String httpResponseInfo = "%s %s %s".formatted(
                     HttpVersion.HTTP_1_1.getValue(),
                     response.getStatusCode().getCode(),
-                    response.getStatusCode());
+                    response.getStatusCode().getMessage());
 
             outputStream.write(httpResponseInfo.getBytes());
 

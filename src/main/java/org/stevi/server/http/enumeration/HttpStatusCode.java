@@ -7,7 +7,9 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum HttpStatusCode {
 
-    OK(200);
+    OK(200, "OK"),
+    NOT_FOUND(404, "Not Found");
 
     private final int code;
+    private final String message;
 }

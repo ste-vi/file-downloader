@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.stevi.server.http.HttpHandler;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.Executor;
@@ -48,7 +50,13 @@ public class Server {
     private void handleSocketConnection(Socket socket) {
         Runnable runnable = () -> {
             try (socket) {
-                handler.handle(socket.getInputStream(), socket.getOutputStream());
+                InputStream inputStream = socket.getInputStream();
+                OutputStream outputStream = socket.getOutputStream();
+
+                handler.handle(inputStream, outputStream);
+
+                outputStream.close();
+                inputStream.close();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -26,10 +26,11 @@ public class HttpRequestReader {
     @SneakyThrows
     private List<String> readHttpMetadata(InputStream inputStream) {
         StringBuilder requestHeader = new StringBuilder();
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[1];
         int bytesRead;
 
-        while ((bytesRead = inputStream.read(buffer)) != -1) {
+        while (inputStream.available() > 0) {
+            bytesRead = inputStream.read(buffer);
             String chunk = new String(buffer, 0, bytesRead);
             requestHeader.append(chunk);
             if (chunk.contains("\r\n\r\n")) {
