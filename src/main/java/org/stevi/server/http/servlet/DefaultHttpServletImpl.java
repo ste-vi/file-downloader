@@ -21,11 +21,16 @@ public class DefaultHttpServletImpl implements HttpServlet {
         System.out.println("Calling do get");
 
         if (request.getUri().getPath().equals("/file")) {
-            var fileChannel = FileChannel.open(Path.of("files/image1.jpg"), StandardOpenOption.READ);
+            String[] params = request.getUri().getQuery().split("=");
+            String fileNameParam = params[0];
+            String fileNameValue = params[1];
+
+            var fileChannel = FileChannel.open(Path.of("files/" + fileNameValue + ".zip"), StandardOpenOption.READ);
+
             var inputStream = Channels.newInputStream(fileChannel);
 
             response.setResponseBodyStream(inputStream);
-            response.getResponseHeaders().put("Content-Type", List.of("image/jpeg"));
+            response.getResponseHeaders().put("Content-Type", List.of("application/zip"));
             response.getResponseHeaders().put("Content-Length", List.of(String.valueOf(inputStream.available())));
         } else {
             response.setEntity("Hello world");
