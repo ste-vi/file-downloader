@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,24 +24,30 @@ public class HttpRequestReader {
 
     @SneakyThrows
     private List<String> readHttpMetadata(InputStream inputStream) {
-        StringBuilder requestHeader = new StringBuilder();
-        byte[] buffer = new byte[1];
-        int bytesRead;
+        List<String> metadata = new ArrayList<>();
 
-        while (inputStream.available() > 0) {
-            bytesRead = inputStream.read(buffer);
-            String chunk = new String(buffer, 0, bytesRead);
-            requestHeader.append(chunk);
-            if (chunk.contains("\r\n\r\n")) {
-                break;
+        StringBuilder lineBuilder = new StringBuilder();
+        int bytesRead;
+        boolean isMetadataHeaderEndLine = false;
+
+        while ((bytesRead = inputStream.read()) >= 0) {
+            if (bytesRead == '\r') {
+                int next = inputStream.read();
+                if (next == '\n') {
+                    if (isMetadataHeaderEndLine) {
+                        break;
+                    }
+                    isMetadataHeaderEndLine = true;
+                    metadata.add(lineBuilder.toString());
+                    lineBuilder.setLength(0);
+                }
+            } else {
+                lineBuilder.append((char) bytesRead);
+                isMetadataHeaderEndLine = false;
             }
         }
 
-        return Arrays
-                .stream(requestHeader.toString().split("\n"))
-                .map(String::trim)
-                .filter(line -> !line.isEmpty())
-                .toList();
+        return metadata;
     }
 
     private Optional<HttpRequest> buildRequest(List<String> metadata, InputStream bodyInputStream) {
@@ -73,6 +78,7 @@ public class HttpRequestReader {
                     .requestHeaders(resolveRequestHeaders(metadata))
                     .bodyInputStream(bodyInputStream)
                     .build();
+
             return Optional.of(httpRequest);
         } catch (URISyntaxException | IllegalArgumentException e) {
             return Optional.empty();

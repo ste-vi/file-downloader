@@ -5,6 +5,7 @@ import org.stevi.server.http.enumeration.HttpVersion;
 import org.stevi.server.http.model.HttpResponse;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,9 @@ public class HttpResponseWriter {
                 outputStream.write("\r\n".getBytes());
                 String json = gson.toJson(response.getEntity());
                 outputStream.write(json.getBytes());
+            } else if (response.getResponseBodyStream() != null) {
+                outputStream.write("\r\n".getBytes());
+                response.getResponseBodyStream().transferTo(outputStream);
             } else {
                 outputStream.write("\r\n".getBytes());
             }

@@ -32,7 +32,6 @@ public class HttpHandler implements Handler {
         Optional<HttpRequest> optRequest = requestReader.decodeRequest(inputStream);
 
         if (optRequest.isEmpty()) {
-            //writeNotFoundResponse(outputStream);
             return;
         }
 
@@ -40,9 +39,12 @@ public class HttpHandler implements Handler {
 
         log.info("Incoming http {} request {}", request.getHttpMethod(), request.getUri());
 
+        Map<String, List<String>> responseHeaders = new java.util.HashMap<>();
+        responseHeaders.put("Content-Type", List.of("application/json"));
+
         HttpResponse response = HttpResponse.builder()
                 .statusCode(HttpStatusCode.OK)
-                .responseHeaders(Map.of("Content-Type", List.of("application/json")))
+                .responseHeaders(responseHeaders)
                 .build();
 
         servletImpls.forEach(httpServlet -> {
@@ -52,19 +54,9 @@ public class HttpHandler implements Handler {
             }
         });
 
-        responseWriter.writeResponse(outputStream, response);
-    }
-
-    private void getRequest(InputStream inputStream) {
-
-    }
-
-    private void writeNotFoundResponse(OutputStream outputStream) {
-        HttpResponse response = HttpResponse.builder()
-                .statusCode(HttpStatusCode.NOT_FOUND)
-                .responseHeaders(Map.of("Content-Type", List.of("application/json")))
-                .build();
+        log.info("Current thread => {}", Thread.currentThread().threadId());
 
         responseWriter.writeResponse(outputStream, response);
     }
+
 }
