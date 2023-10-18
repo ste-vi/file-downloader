@@ -104,7 +104,7 @@ public class HttpRequestReader {
                     if (values == null) {
                         values = new ArrayList<>();
                     }
-                    values.add(headerValue);
+                    values.add(headerValue.trim());
 
                     return values;
                 });

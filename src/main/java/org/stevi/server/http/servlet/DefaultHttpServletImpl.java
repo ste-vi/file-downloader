@@ -11,9 +11,16 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DefaultHttpServletImpl implements HttpServlet {
+
+    private final AtomicInteger visitCounter = new AtomicInteger(0);
+    private final ConcurrentMap<String, Integer> visitorMap = new ConcurrentHashMap<>();
 
     @SneakyThrows
     @Override
@@ -26,12 +33,25 @@ public class DefaultHttpServletImpl implements HttpServlet {
             String fileNameValue = params[1];
 
             var fileChannel = FileChannel.open(Path.of("files/" + fileNameValue + ".zip"), StandardOpenOption.READ);
-
             var inputStream = Channels.newInputStream(fileChannel);
 
             response.setResponseBodyStream(inputStream);
             response.getResponseHeaders().put("Content-Type", List.of("application/zip"));
             response.getResponseHeaders().put("Content-Length", List.of(String.valueOf(inputStream.available())));
+        } else if (request.getUri().getPath().equals("/count")) {
+            Optional<String> sessionIdCookie = request.getCookie("sessionId");
+            if (sessionIdCookie.isPresent()) {
+                if (visitorMap.get(sessionIdCookie.get()) != null) {
+                    visitorMap.replace(sessionIdCookie.get(), visitorMap.get(sessionIdCookie.get()) + 1);
+                } else {
+                    visitCounter.incrementAndGet();
+                    visitorMap.putIfAbsent(sessionIdCookie.get(), 1);
+                }
+            } else {
+                visitCounter.incrementAndGet();
+            }
+        } else if (request.getUri().getPath().equals("/home")) {
+            response.setEntity("This endpoint was visited %s times".formatted(visitCounter.get()));
         } else {
             response.setEntity("Hello world");
         }
